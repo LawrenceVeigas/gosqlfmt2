@@ -17,7 +17,7 @@ func init() {
 
 	// log.SetLevel(log.WarnLevel)
 	log.SetLevel(log.DebugLevel)
-	log.SetReportCaller(true)
+	// log.SetReportCaller(true)
 }
 
 func CleanQuery(query string) string {
@@ -51,74 +51,65 @@ func CleanQuery(query string) string {
 	return query
 }
 
-func formatquery(query string) string {
-	// log.Debugf("Query received: %v\n", query)
-	query = CleanQuery(query)
-	var fmtdquery string
-	// read each word
-	words := strings.Split(query, space)
+func fmtlines(query string) string {
+	var fmtquery string
 
-	j := 0
-	for j < len(words) {
-		word := words[j]
-		log.Debugf("Word: %v\n", word)
+	query = CleanQuery(query)
+
+	words := strings.Split(query, space)
+	length := len(words)
+
+	i := 0
+	for i < length {
 		var (
 			nextword string
 			phrase   string
 		)
 
-		if j < len(words)-1 {
-			nextword = words[j+1]
+		word := strings.TrimSpace(words[i])
+		if i < length-1 {
+			nextword = strings.TrimSpace(words[i+1])
 			phrase = word + space + nextword
+			log.Debugf("Phrase :%v", phrase)
 		}
 
-		if word == "(" && nextword != ")" {
-			tab += "  "
-			fmtdquery += space + word + newline + tab
-		} else if word == ")" {
-			tab = strings.Replace(tab, "  ", "", 1)
-			fmtdquery += newline + tab + word
-		} else if strings.HasSuffix(word, ",") {
-			fmtdquery += word + newline + tab
+		if strings.HasSuffix(word, ",") {
+			fmtquery += word + newline
 		} else if selectk.MatchString(word) {
-			// SELECT
-			tab += "  "
-			fmtdquery += word + newline + tab
+			fmtquery += newline + word + newline
 		} else if from.MatchString(word) {
-			// FROM
-			tab = strings.Replace(tab, "  ", "", 1)
-			if !strings.HasSuffix(fmtdquery, newline) {
-				fmtdquery += newline + tab
-			}
-			fmtdquery += word + newline
-			tab += "  "
-			fmtdquery += tab
-		} else if groupby.MatchString(phrase) {
-			// FROM
-			tab = strings.Replace(tab, "  ", "", 1)
-			if !strings.HasSuffix(fmtdquery, newline) {
-				fmtdquery += newline + tab
-			}
-			fmtdquery += phrase + newline
-			tab += "  "
-			fmtdquery += tab
-			j += 2
-			continue
-		} else if word == "and" {
-			fmtdquery += newline + tab + word
-		} else {
-			if strings.HasSuffix(fmtdquery, newline) {
-				fmtdquery += tab + word
-			} else if strings.HasSuffix(fmtdquery, tab) {
-				fmtdquery += word
+			fmtquery += newline + word + newline
+		} else if word == "case" {
+			fmtquery += newline + word + newline
+		} else if prepositions.MatchString(word) {
+			log.Debugf("Preposition: %v", word)
+			fmtquery += newline + word + space
+		} else if joins.MatchString(phrase) {
+			// exceptional 3 word case
+			if phrase == "full outer" {
+				fmtquery += newline + phrase + space + "join" + space
+				i += 3
 			} else {
-				fmtdquery += space + word
+				fmtquery += newline + phrase + space
+				i += 2
 			}
+			continue
+		} else if i == length-1 {
+			fmtquery += word + newline
+		} else {
+			fmtquery += word + space
 		}
-		j++
+		i++
 	}
-	return fmtdquery
-	// return query
+
+	fmtquery = strings.ReplaceAll(fmtquery, "\n\n", "\n")
+
+	return fmtquery
+}
+
+func formatquery(query string) string {
+	query = fmtlines(query)
+	return query
 }
 
 func Parse(fileName string) string {
@@ -126,14 +117,11 @@ func Parse(fileName string) string {
 	var query string
 	file := GetQuery(fileName)
 
+	// handle inline comments
+	file = inlinecomment.ReplaceAllString(file, "${2}\n${1}")
+
 	// read each line
 	lines := strings.Split(file, "\n")
-
-	// TODO: DELETE LOG CALLS
-	// for i := range lines {
-	// 	log.Debugln(strings.TrimSpace(lines[i]))
-	// }
-	// log.Fatal()
 
 	for i := range lines {
 		line := strings.TrimSpace(lines[i])

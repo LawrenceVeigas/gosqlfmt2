@@ -13,7 +13,7 @@ var tab = ""
 var (
 	whitespace    = regexp.MustCompile(`\s{2,}`)
 	comment       = regexp.MustCompile(`^--.*`)
-	inlinecomment = regexp.MustCompile(`.*?(--.*)`)
+	inlinecomment = regexp.MustCompile(`(.+?)(--.*)`)
 	newlineword   = regexp.MustCompile(`\n([a-zA-Z='0-9]*)`)
 	selectk       = regexp.MustCompile(`(?i)select`)
 	from          = regexp.MustCompile(`(?i)(from|where|qualify|having)`)
@@ -21,6 +21,8 @@ var (
 	spacecomma    = regexp.MustCompile(`\s,`)
 	commaword     = regexp.MustCompile(`,(\w*)`)
 	bracket       = regexp.MustCompile(`(?i)\(`)
+	prepositions  = regexp.MustCompile(`(?i)(^on$|^or$|^and$|^end$|^else$)`)
+	joins         = regexp.MustCompile(`(?i)(left join|right join|inner join|join|full outer)`)
 )
 
 // keywords
