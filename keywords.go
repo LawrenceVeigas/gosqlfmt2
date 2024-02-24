@@ -20,6 +20,7 @@ var (
 	groupby       = regexp.MustCompile(`(?i)(group\sby|order\sby)`)
 	spacecomma    = regexp.MustCompile(`\s,`)
 	commaword     = regexp.MustCompile(`,(\w*)`)
+	bracketword   = regexp.MustCompile(`(\))(\w*)`)
 	bracket       = regexp.MustCompile(`(?i)\(`)
 	prepositions  = regexp.MustCompile(`(?i)(^on$|^or$|^and$|^end$|^else$)`)
 	joins         = regexp.MustCompile(`(?i)(left join|right join|inner join|join|full outer)`)

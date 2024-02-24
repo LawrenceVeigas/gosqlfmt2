@@ -46,13 +46,23 @@ func CleanQuery(query string) string {
 	// remove leading/trailing whitespace
 	query = strings.TrimSpace(query)
 
+	// bracket word
+	query = regexp.MustCompile(`(\))(\w)`).ReplaceAllString(query, "$1 $2")
+
+	// multiple brackets
+	query = strings.ReplaceAll(strings.ReplaceAll(query, "((", "( ("), "((", "( (")
+	query = strings.ReplaceAll(strings.ReplaceAll(query, "))", ") )"), "((", "( (")
+
 	log.Infof("Cleaned Query: %v", query)
 
 	return query
 }
 
 func fmtlines(query string) string {
-	var fmtquery string
+	var (
+		fmtquery string
+		counter  int //to track brackets
+	)
 
 	query = CleanQuery(query)
 
@@ -67,24 +77,60 @@ func fmtlines(query string) string {
 		)
 
 		word := strings.TrimSpace(words[i])
+		log.Debugf("Counter: %v", counter)
+		log.Debugf("Word: %v\t%v\n", word, len(word))
 		if i < length-1 {
 			nextword = strings.TrimSpace(words[i+1])
 			phrase = word + space + nextword
 			log.Debugf("Phrase :%v", phrase)
 		}
 
-		if strings.HasSuffix(word, ",") {
+		// Handle brackets first
+		if strings.Contains(word, "(") {
+			if word == "(" {
+				log.Debug("Open Bracket")
+				fmtquery += word + newline
+			} else {
+				counter++
+				if strings.Contains(word, ")") {
+					counter--
+				}
+				fmtquery += word + space
+			}
+		} else if strings.Contains(word, ")") {
+			if strings.HasSuffix(word, ")") && counter > 0 {
+				counter--
+				fmtquery += word + space
+			} else if strings.HasSuffix(word, ")") {
+				log.Debug("Close Bracket")
+				n := strings.LastIndex(word, ")")
+				w := word[0:n]
+
+				fmtquery += w + newline + ")" + newline
+			} else if strings.HasSuffix(word, "),") {
+				log.Debug("Close Bracket")
+				n := strings.LastIndex(word, "),")
+				w := word[0:n]
+
+				fmtquery += w + newline + ")," + newline
+			}
+		} else if strings.HasSuffix(word, ",") {
+			log.Debug("Column")
 			fmtquery += word + newline
 		} else if selectk.MatchString(word) {
+			log.Debug("Select")
 			fmtquery += newline + word + newline
 		} else if from.MatchString(word) {
+			log.Debug("From|Where|Qualify|Having")
 			fmtquery += newline + word + newline
 		} else if word == "case" {
+			log.Debug("Case")
 			fmtquery += newline + word + newline
 		} else if prepositions.MatchString(word) {
-			log.Debugf("Preposition: %v", word)
+			log.Debug("On|Or|And|End|Else")
 			fmtquery += newline + word + space
 		} else if joins.MatchString(phrase) {
+			log.Debug("Joins")
 			// exceptional 3 word case
 			if phrase == "full outer" {
 				fmtquery += newline + phrase + space + "join" + space
@@ -94,9 +140,16 @@ func fmtlines(query string) string {
 				i += 2
 			}
 			continue
+		} else if groupby.MatchString(phrase) {
+			log.Debug("Group|Order by")
+			fmtquery += newline + phrase + newline
+			i += 2
+			continue
 		} else if i == length-1 {
+			log.Debug("Last Word")
 			fmtquery += word + newline
 		} else {
+			log.Debug("Default")
 			fmtquery += word + space
 		}
 		i++
@@ -110,6 +163,36 @@ func fmtlines(query string) string {
 func formatquery(query string) string {
 	query = fmtlines(query)
 	return query
+}
+
+func fmttabs(query string) string {
+	var fmtdquery string
+	// read each line
+	lines := strings.Split(query, "\n")
+
+	for i := range lines {
+		line := lines[i]
+		log.Debugf("fmttabs:Line:Tablen: %v:%v", line, len(tab))
+
+		if selectk.MatchString(line) {
+			fmtdquery += tab + line + newline
+			tab += "  "
+		} else if from.MatchString(line) || groupby.MatchString(line) {
+			tab = strings.Replace(tab, "  ", "", 1)
+			fmtdquery += tab + line + newline
+			tab += "  "
+		} else if strings.HasSuffix(line, "(") {
+			fmtdquery += tab + line + newline
+			tab += "  "
+		} else if strings.HasSuffix(line, ")") || strings.HasSuffix(line, "),") {
+			tab = strings.Replace(tab, "  ", "", 2)
+			fmtdquery += tab + line + newline
+		} else {
+			fmtdquery += tab + line + newline
+		}
+	}
+
+	return fmtdquery
 }
 
 func Parse(fileName string) string {
@@ -144,6 +227,8 @@ func Parse(fileName string) string {
 	if len(query) > 0 {
 		fmtdquery += formatquery(query)
 	}
+
+	fmtdquery = fmttabs(fmtdquery)
 
 	return fmtdquery
 }
