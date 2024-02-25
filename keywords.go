@@ -17,11 +17,10 @@ var (
 	newlineword   = regexp.MustCompile(`\n([a-zA-Z='0-9]*)`)
 	selectk       = regexp.MustCompile(`(?i)select`)
 	from          = regexp.MustCompile(`(?i)(from|where|qualify|having)`)
-	groupby       = regexp.MustCompile(`(?i)(group\sby|order\sby)`)
+	groupby       = regexp.MustCompile(`(?i)(group by|order by|partition by)`)
 	spacecomma    = regexp.MustCompile(`\s,`)
 	commaword     = regexp.MustCompile(`,(\w*)`)
 	bracketword   = regexp.MustCompile(`(\))(\w*)`)
-	bracket       = regexp.MustCompile(`(?i)\(`)
 	prepositions  = regexp.MustCompile(`(?i)(^on$|^or$|^and$|^end$|^else$)`)
 	joins         = regexp.MustCompile(`(?i)(left join|right join|inner join|join|full outer)`)
 )
@@ -32,6 +31,7 @@ var (
 	FROM      = "FROM"
 	WHERE     = "WHERE"
 	AS        = "AS"
+    IN = "IN"
 	GROUPBY   = "GROUP BY"
 	ORDERBY   = "ORDER BY"
 	HAVING    = "HAVING"
@@ -45,5 +45,5 @@ var (
 	LEFTJOIN  = "LEFT JOIN"
 	RIGHJOIN  = "RIGHT JOIN"
 
-	KEYWORDS = []string{SELECT, FROM, WHERE, AS, GROUPBY, ORDERBY, HAVING, PARTITION, OVER, ASC, DESC, JOIN, FULLJOIN, INNERJOIN, LEFTJOIN, RIGHJOIN}
+	KEYWORDS = []string{SELECT, FROM, WHERE, AS, GROUPBY, ORDERBY, HAVING, PARTITION, OVER, ASC, DESC, JOIN, FULLJOIN, INNERJOIN, LEFTJOIN, RIGHJOIN, IN}
 )
