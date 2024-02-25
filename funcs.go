@@ -166,35 +166,26 @@ func fmtlines(query string) string {
 	return fmtquery
 }
 
-func formatquery(query string) string {
-	query = fmtlines(query)
-	return query
-}
-
 func findtab(query string) string {
 	var tab string
-	var counter int
-	closeBracketRegex := regexp.MustCompile(`(?i)^\s*\)[a-z\s]*`)
-	openBracketRegex := regexp.MustCompile(`\($`)
+	counter := 1
 	lines := strings.Split(query, "\n")
 
 	for i := len(lines) - 1; i >= 0; i-- {
 		line := lines[i]
 		log.Debugf("findtab: %v %v", line, counter)
-		if closeBracketRegex.MatchString(line) {
-			log.Debug("found Close Bracket; increasing counter")
-			counter++
-			if strings.HasSuffix(line, "(") {
-				log.Debug("found Open Bracket on the same line!")
+
+		for c := len(line) - 1; c >= 0; c-- {
+			w := string(line[c])
+			if w == ")" {
+				counter++
+			} else if w == "(" {
 				counter--
 			}
-		} else if openBracketRegex.MatchString(line) && counter > 0 {
-			log.Debug("found Close Bracket")
-			counter--
-		} else if openBracketRegex.MatchString(line) && counter <= 0 {
-			log.Debug("findtab: Match!")
-			tab = regexp.MustCompile(`^(\s*)`).FindString(line)
-			return tab
+			if counter == 0 {
+				tab = regexp.MustCompile(`^(\s*)`).FindString(line)
+				return tab
+			}
 		}
 	}
 
@@ -225,6 +216,12 @@ func fmttabs(query string) string {
 			if strings.HasSuffix(line, "(") {
 				tab += "  "
 			}
+		} else if strings.Contains(line, "(") && !strings.Contains(line, ")") {
+			fmtdquery += tab + line + newline
+			tab += "  "
+		} else if strings.Contains(line, ")") && !strings.Contains(line, "(") {
+			fmtdquery += tab + line + newline
+			tab = strings.Replace(tab, "  ", "", 1)
 		} else if strings.HasSuffix(line, "(") {
 			fmtdquery += tab + line + newline
 			tab += "  "
@@ -252,7 +249,7 @@ func Parse(fileName string) string {
 
 		if comment.MatchString(line) {
 			if len(query) > 0 {
-				fmtdquery += formatquery(query) //formatquery is responsible for adding 2 newlines at the end of fmtdquery that it returns
+				fmtdquery += fmtlines(query) //formatquery is responsible for adding 2 newlines at the end of fmtdquery that it returns
 				query = ""
 			}
 			fmtdquery += tab + line + newline + tab
@@ -266,7 +263,7 @@ func Parse(fileName string) string {
 	}
 
 	if len(query) > 0 {
-		fmtdquery += formatquery(query)
+		fmtdquery += fmtlines(query)
 	}
 
 	fmtdquery = fmttabs(fmtdquery)
