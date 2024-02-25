@@ -50,8 +50,8 @@ func CleanQuery(query string) string {
 	query = regexp.MustCompile(`(\))(\w)`).ReplaceAllString(query, "$1 $2")
 
 	// multiple brackets
-	query = strings.ReplaceAll(strings.ReplaceAll(query, "((", "( ("), "((", "( (")
-	query = strings.ReplaceAll(strings.ReplaceAll(query, "))", ") )"), "((", "( (")
+	query = strings.ReplaceAll(query, "((", " ( (")
+	query = strings.ReplaceAll(query, "))", " ) )")
 
 	log.Infof("Cleaned Query: %v", query)
 
@@ -82,7 +82,7 @@ func fmtlines(query string) string {
 		if i < length-1 {
 			nextword = strings.TrimSpace(words[i+1])
 			phrase = word + space + nextword
-			log.Debugf("Phrase :%v", phrase)
+			// log.Debugf("Phrase :%v", phrase)
 		}
 
 		// Handle brackets first
@@ -91,6 +91,7 @@ func fmtlines(query string) string {
 				log.Debug("Open Bracket")
 				fmtquery += word + newline
 			} else {
+				log.Debug("Func Open Bracket")
 				counter++
 				if strings.Contains(word, ")") {
 					counter--
@@ -99,20 +100,25 @@ func fmtlines(query string) string {
 			}
 		} else if strings.Contains(word, ")") {
 			if strings.HasSuffix(word, ")") && counter > 0 {
+				log.Debug("Func Close Bracket")
 				counter--
 				fmtquery += word + space
+			} else if strings.HasSuffix(word, "),") && counter > 0 {
+				log.Debug("Func Close Bracket")
+				counter--
+				fmtquery += word + space + newline
 			} else if strings.HasSuffix(word, ")") {
 				log.Debug("Close Bracket")
 				n := strings.LastIndex(word, ")")
 				w := word[0:n]
 
-				fmtquery += w + newline + ")" + newline
+				fmtquery += w + newline + ")" + space
 			} else if strings.HasSuffix(word, "),") {
 				log.Debug("Close Bracket")
 				n := strings.LastIndex(word, "),")
 				w := word[0:n]
 
-				fmtquery += w + newline + ")," + newline
+				fmtquery += w + newline + ")," + space
 			}
 		} else if strings.HasSuffix(word, ",") {
 			log.Debug("Column")
@@ -165,6 +171,36 @@ func formatquery(query string) string {
 	return query
 }
 
+func findtab(query string) string {
+	var tab string
+	var counter int
+	closeBracketRegex := regexp.MustCompile(`(?i)^\s*\)[a-z\s]*`)
+	openBracketRegex := regexp.MustCompile(`\($`)
+	lines := strings.Split(query, "\n")
+
+	for i := len(lines) - 1; i >= 0; i-- {
+		line := lines[i]
+		log.Debugf("findtab: %v %v", line, counter)
+		if closeBracketRegex.MatchString(line) {
+			log.Debug("found Close Bracket; increasing counter")
+			counter++
+			if strings.HasSuffix(line, "(") {
+				log.Debug("found Open Bracket on the same line!")
+				counter--
+			}
+		} else if openBracketRegex.MatchString(line) && counter > 0 {
+			log.Debug("found Close Bracket")
+			counter--
+		} else if openBracketRegex.MatchString(line) && counter <= 0 {
+			log.Debug("findtab: Match!")
+			tab = regexp.MustCompile(`^(\s*)`).FindString(line)
+			return tab
+		}
+	}
+
+	return tab
+}
+
 func fmttabs(query string) string {
 	var fmtdquery string
 	// read each line
@@ -181,12 +217,17 @@ func fmttabs(query string) string {
 			tab = strings.Replace(tab, "  ", "", 1)
 			fmtdquery += tab + line + newline
 			tab += "  "
+		} else if strings.HasPrefix(line, ")") || strings.HasPrefix(line, "),") {
+			// find corresponding opening line and get tabspace length
+			tab = findtab(fmtdquery)
+			// tab = strings.Replace(tab, "  ", "", 2)
+			fmtdquery += tab + line + newline
+			if strings.HasSuffix(line, "(") {
+				tab += "  "
+			}
 		} else if strings.HasSuffix(line, "(") {
 			fmtdquery += tab + line + newline
 			tab += "  "
-		} else if strings.HasSuffix(line, ")") || strings.HasSuffix(line, "),") {
-			tab = strings.Replace(tab, "  ", "", 2)
-			fmtdquery += tab + line + newline
 		} else {
 			fmtdquery += tab + line + newline
 		}
