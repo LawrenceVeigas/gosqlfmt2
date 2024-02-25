@@ -14,10 +14,7 @@ func init() {
 	})
 
 	log.SetOutput(os.Stdout)
-
-	// log.SetLevel(log.WarnLevel)
-	log.SetLevel(log.DebugLevel)
-	// log.SetReportCaller(true)
+	log.SetLevel(log.WarnLevel)
 }
 
 func CleanQuery(query string) string {
@@ -267,6 +264,11 @@ func Parse(fileName string) string {
 	}
 
 	fmtdquery = fmttabs(fmtdquery)
+
+    fmtdquery = strings.Replace(fmtdquery, "\n\n", "\n", -1)
+    fmtdquery = strings.Replace(fmtdquery, ";", ";\n\n", -1)
+
+    fmtdquery = strings.TrimSpace(fmtdquery)
 
 	return fmtdquery
 }
